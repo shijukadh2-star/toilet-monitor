@@ -6,53 +6,80 @@
     <title>Amos 卫生间状态</title>
     <style>
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f2f2f7; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .card { background: white; width: 85%; max-width: 350px; padding: 40px 20px; border-radius: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); text-align: center; }
+        
+        .card { background: white; width: 85%; max-width: 350px; padding: 40px 20px; border-radius: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); text-align: center; position: relative;}
+        
         .status-circle { width: 140px; height: 140px; border-radius: 50%; margin: 0 auto 30px; display: flex; align-items: center; justify-content: center; font-size: 60px; transition: all 0.3s; background-color: #ddd; }
-        .free { background-color: #34C759; box-shadow: 0 10px 20px rgba(52, 199, 89, 0.3); color: white; }
-        .busy { background-color: #FF3B30; box-shadow: 0 10px 20px rgba(255, 59, 48, 0.3); color: white; }
+        
+        .free { background-color: #34C759; box-shadow: 0 10px 20px rgba(52, 199, 89, 0.3); color: white; animation: pulse-green 2s infinite; }
+        .busy { background-color: #FF3B30; box-shadow: 0 10px 20px rgba(255, 59, 48, 0.3); color: white; animation: pulse-red 2s infinite; }
+        
         h1 { margin: 0; font-size: 28px; color: #1c1c1e; font-weight: 700; }
         p { margin-top: 10px; color: #8e8e93; font-size: 14px; }
+        
+        /* 呼吸灯动画 */
+        @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.4); } 70% { box-shadow: 0 0 0 15px rgba(52, 199, 89, 0); } 100% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0); } }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4); } 70% { box-shadow: 0 0 0 15px rgba(255, 59, 48, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); } }
+
+        /* 右上角心跳点 */
+        .live-indicator { position: absolute; top: 20px; right: 20px; width: 8px; height: 8px; background-color: #ccc; border-radius: 50%; }
+        .blinking { background-color: #34C759; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+
         .brand { position: absolute; bottom: 30px; color: #c7c7cc; font-size: 12px; font-weight: 500; letter-spacing: 1px; }
+        #debug { font-size: 10px; color: #ccc; margin-top: 20px; height: 15px;}
     </style>
 </head>
 <body>
+
     <div class="card">
+        <div id="liveDot" class="live-indicator"></div>
+
         <div id="circle" class="status-circle">?</div>
-        <h1 id="statusText">正在同步...</h1>
+        <h1 id="statusText">连接中...</h1>
         <p id="timeText">Amos Internal System</p>
+        <div id="debug"></div>
     </div>
+
     <div class="brand">AMOS SWEETS</div>
+
     <script>
+        // ✅ 你的 UID (已填好)
         const uid = "21f86b4c0b9947c99462f1c86809f86f";
         const topic = "toilet001";
-        const type = "3"; // TCP类型
 
         async function refresh() {
+            // 让右上角的小点闪一下，表示“我在请求了”
+            const dot = document.getElementById('liveDot');
+            dot.classList.add('blinking');
+
             try {
-                // 🔥 核心修改 1：生成一个当前的时间数字 (例如 1732692222)
+                // 🔥 核心修改：生成随机时间戳，彻底禁止缓存
                 const timestamp = new Date().getTime();
 
-                // 🔥 核心修改 2：把这个时间数字加到 URL 最后 (&t=...)
-                // 这样每次生成的网址都不一样，强迫浏览器和代理必须重新去查数据！
-                const targetUrl = `https://apis.bemfa.com/va/getmsg?uid=${uid}&topic=${topic}&type=${type}&num=1&t=${timestamp}`;
+                // 🔥 直连地址：不走代理，直接访问巴法云
+                // 注意：这里使用的是 https://api.bemfa.com (你验证过能通的那个)
+                const targetUrl = `https://api.bemfa.com/api/device/v1/data/1/get/?uid=${uid}&topic=${topic}&num=1&t=${timestamp}`;
                 
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+                // 设置 fetch 模式为 cors，虽然巴法云支持，但显式声明更好
+                const res = await fetch(targetUrl, { method: 'GET', mode: 'cors' });
                 
-                const res = await fetch(proxyUrl);
-                const jsonWrapper = await res.json();
+                if (!res.ok) throw new Error("网络波动");
+
+                const json = await res.json();
                 
-                const realData = JSON.parse(jsonWrapper.contents);
-                
-                if (realData.code === 0 && realData.data && realData.data.length > 0) {
-                    let msg = realData.data[0].msg.trim();
-                    updateUI(msg);
-                } else {
-                    updateUI("nodata");
+                // 解析数据
+                if (json.msg) {
+                    updateUI(json.msg.trim());
+                    document.getElementById('debug').innerText = ""; 
                 }
             } catch (e) {
                 console.error(e);
-                // 只有连续报错才提示，避免偶尔闪烁
-                // document.getElementById('statusText').innerText = "网络受限";
+                // 只有连续失败才显示，避免闪烁
+                // document.getElementById('statusText').innerText = "同步慢";
+            } finally {
+                // 请求结束，小点停止闪烁(可选，这里让它一直闪更有安全感)
+                // dot.classList.remove('blinking'); 
             }
         }
 
@@ -64,25 +91,20 @@
 
             if (msg === "on") {
                 circle.className = "status-circle busy";
-                circle.innerHTML = "✋";
+                circle.innerHTML = "✋"; 
                 text.innerText = "使用中";
                 text.style.color = "#FF3B30";
             } else if (msg === "off") {
                 circle.className = "status-circle free";
-                circle.innerHTML = "✅";
+                circle.innerHTML = "✅"; 
                 text.innerText = "空闲";
                 text.style.color = "#34C759";
-            } else {
-                // 暂时保持之前的状态，或者显示无数据
-                // circle.className = "status-circle";
-                // circle.innerHTML = "?";
-                // text.innerText = "无数据";
             }
             time.innerText = "更新于: " + now;
         }
 
-        // 每 3 秒刷新一次
-        setInterval(refresh, 3000);
+        // ⚡️ 提速：改为 2 秒刷新一次
+        setInterval(refresh, 2000);
         refresh();
     </script>
 </body>
