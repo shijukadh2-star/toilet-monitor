@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Amos 卫生间状态</title>
+    <style>
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f2f2f7; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        
+        /* 卡片样式 */
+        .card { background: white; width: 85%; max-width: 350px; padding: 40px 20px; border-radius: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); text-align: center; transition: transform 0.2s; }
+        
+        /* 状态圆圈 */
+        .status-circle { width: 140px; height: 140px; border-radius: 50%; margin: 0 auto 30px; display: flex; align-items: center; justify-content: center; font-size: 60px; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        
+        /* 状态配色 */
+        .free { background-color: #34C759; box-shadow: 0 10px 20px rgba(52, 199, 89, 0.3); color: white; }
+        .busy { background-color: #FF3B30; box-shadow: 0 10px 20px rgba(255, 59, 48, 0.3); color: white; }
+        
+        h1 { margin: 0; font-size: 28px; color: #1c1c1e; font-weight: 700; }
+        p { margin-top: 10px; color: #8e8e93; font-size: 14px; }
+        
+        .brand { position: absolute; bottom: 30px; color: #c7c7cc; font-size: 12px; font-weight: 500; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div id="circle" class="status-circle free">?</div>
+        <h1 id="statusText">正在同步...</h1>
+        <p id="timeText">等待数据中</p>
+    </div>
+
+    <div class="brand">AMOS SWEETS INTERNAL</div>
+
+    <script>
+        // ================= 配置区 =================
+        const uid = "你的私钥UID"; // 🔴 记得填入你的 UID
+        const topic = "toilet001";
+        // =========================================
+
+        async function refresh() {
+            try {
+                // 使用 HTTP API 获取状态 (不用 MQTT，防止手机端端口被封)
+                let res = await fetch(`https://api.bemfa.com/api/device/v1/data/1/uid/${uid}/topic/${topic}/num/1`);
+                let json = await res.json();
+                
+                if (json.data && json.data.length > 0) {
+                    let msg = json.data[0].msg.trim();
+                    updateUI(msg);
+                }
+            } catch (e) {
+                console.log("Error:", e);
+            }
+        }
+
+        function updateUI(msg) {
+            const circle = document.getElementById('circle');
+            const text = document.getElementById('statusText');
+            const time = document.getElementById('timeText');
+            const now = new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+
+            if (msg === "on") {
+                circle.className = "status-circle busy";
+                circle.innerHTML = "✋"; 
+                text.innerText = "使用中";
+                text.style.color = "#FF3B30";
+            } else {
+                circle.className = "status-circle free";
+                circle.innerHTML = "✅"; 
+                text.innerText = "空闲";
+                text.style.color = "#34C759";
+            }
+            time.innerText = "更新于: " + now;
+        }
+
+        // 每 2 秒刷新一次，保证手机看的时候够快
+        setInterval(refresh, 2000);
+        refresh();
+    </script>
+</body>
+</html>
