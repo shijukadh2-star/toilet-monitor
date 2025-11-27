@@ -26,61 +26,62 @@
     <div class="brand">AMOS SWEETS</div>
 
     <script>
-        // 🔴🔴🔴 请填入你的 UID 🔴🔴🔴
-        const uid = "21f86b4c0b9947c99462f1c86809f86f";  
-        const topic = "toilet001";
-        // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
-
-        async function refresh() {
-            try {
-                // 原始 HTTP 链接
-                const targetUrl = `http://api.bemfa.com/api/device/v1/data/1/uid/${uid}/topic/${topic}/num/1`;
-                
-                // 🔥 核心修改：使用 'allorigins' 魔法中转 🔥
-                // 这将绕过 HTTPS 限制和跨域问题
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-
-                const res = await fetch(proxyUrl);
-                const jsonWrapper = await res.json();
-                
-                // allorigins 会把真实数据放在 contents 里
-                const realData = JSON.parse(jsonWrapper.contents);
-
-                if (realData.data && realData.data.length > 0) {
-                    let msg = realData.data[0].msg.trim();
-                    updateUI(msg);
-                } else {
-                     updateUI("nodata");
-                }
-            } catch (e) {
-                console.error(e);
-                // 如果连魔法中转都失败了，说明彻底没网
-                document.getElementById('statusText').innerText = "网络受限";
+    // 🔴🔴🔴 请填入你的 UID 🔴🔴🔴
+    const uid = "21f86b4c0b9947c99462f1c86809f86f";
+    const topic = "toilet001";
+    const type = "3";  // 🔥 新增：协议类型，3=TCP（匹配你的设备推送方式），如用MQTT则改1
+    // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+    async function refresh() {
+        try {
+            // 🔥 修改：使用新版API端点和查询字符串格式
+            const targetUrl = `https://apis.bemfa.com/va/getmsg?uid=${uid}&topic=${topic}&type=${type}&num=1`;
+           
+            // 继续用allorigins代理绕过CORS（如果不需要可移除）
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+            const res = await fetch(proxyUrl);
+            const jsonWrapper = await res.json();
+           
+            // allorigins 把数据放contents里，解析成JSON
+            const realData = JSON.parse(jsonWrapper.contents);
+           
+            // 🔥 修改：新版响应格式，检查是否有数据
+            if (realData.code === 0 && realData.data && realData.data.length > 0) {
+                let msg = realData.data[0].msg.trim();  // 新版data是数组，msg在其中
+                updateUI(msg);
+            } else {
+                updateUI("nodata");
             }
+        } catch (e) {
+            console.error(e);
+            document.getElementById('statusText').innerText = "网络受限";
         }
-
-        function updateUI(msg) {
-            const circle = document.getElementById('circle');
-            const text = document.getElementById('statusText');
-            const time = document.getElementById('timeText');
-            const now = new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute:'2-digit'});
-
-            if (msg === "on") {
-                circle.className = "status-circle busy";
-                circle.innerHTML = "✋"; 
-                text.innerText = "使用中";
-                text.style.color = "#FF3B30";
-            } else if (msg === "off") {
-                circle.className = "status-circle free";
-                circle.innerHTML = "✅"; 
-                text.innerText = "空闲";
-                text.style.color = "#34C759";
-            }
-            time.innerText = "更新于: " + now;
+    }
+    function updateUI(msg) {
+        const circle = document.getElementById('circle');
+        const text = document.getElementById('statusText');
+        const time = document.getElementById('timeText');
+        const now = new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute:'2-digit'});
+        if (msg === "on") {
+            circle.className = "status-circle busy";
+            circle.innerHTML = "✋";
+            text.innerText = "使用中";
+            text.style.color = "#FF3B30";
+        } else if (msg === "off") {
+            circle.className = "status-circle free";
+            circle.innerHTML = "✅";
+            text.innerText = "空闲";
+            text.style.color = "#34C759";
+        } else {
+            circle.className = "status-circle";
+            circle.innerHTML = "?";
+            text.innerText = "无数据";
+            text.style.color = "#8e8e93";
         }
-
-        setInterval(refresh, 3000);
-        refresh();
-    </script>
+        time.innerText = "更新于: " + now;
+    }
+    setInterval(refresh, 3000);
+    refresh();
+ </script>
 </body>
 </html>
+
