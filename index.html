@@ -23,41 +23,45 @@
     </div>
     <div class="brand">AMOS SWEETS</div>
     <script>
-        // 🔴🔴🔴 请填入你的 UID 🔴🔴🔴
         const uid = "21f86b4c0b9947c99462f1c86809f86f";
         const topic = "toilet001";
-        const type = "3";  // 🔥 新增：协议类型，3=TCP（匹配你的设备推送方式），如用MQTT则改1
-        // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+        const type = "3"; // TCP类型
+
         async function refresh() {
             try {
-                // 🔥 修改：使用新版API端点和查询字符串格式
-                const targetUrl = `https://apis.bemfa.com/va/getmsg?uid=${uid}&topic=${topic}&type=${type}&num=1`;
-               
-                // 继续用allorigins代理绕过CORS（如果不需要可移除）
+                // 🔥 核心修改 1：生成一个当前的时间数字 (例如 1732692222)
+                const timestamp = new Date().getTime();
+
+                // 🔥 核心修改 2：把这个时间数字加到 URL 最后 (&t=...)
+                // 这样每次生成的网址都不一样，强迫浏览器和代理必须重新去查数据！
+                const targetUrl = `https://apis.bemfa.com/va/getmsg?uid=${uid}&topic=${topic}&type=${type}&num=1&t=${timestamp}`;
+                
                 const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+                
                 const res = await fetch(proxyUrl);
                 const jsonWrapper = await res.json();
-               
-                // allorigins 把数据放contents里，解析成JSON
+                
                 const realData = JSON.parse(jsonWrapper.contents);
-               
-                // 🔥 修改：新版响应格式，检查是否有数据
+                
                 if (realData.code === 0 && realData.data && realData.data.length > 0) {
-                    let msg = realData.data[0].msg.trim();  // 新版data是数组，msg在其中
+                    let msg = realData.data[0].msg.trim();
                     updateUI(msg);
                 } else {
                     updateUI("nodata");
                 }
             } catch (e) {
                 console.error(e);
-                document.getElementById('statusText').innerText = "网络受限";
+                // 只有连续报错才提示，避免偶尔闪烁
+                // document.getElementById('statusText').innerText = "网络受限";
             }
         }
+
         function updateUI(msg) {
             const circle = document.getElementById('circle');
             const text = document.getElementById('statusText');
             const time = document.getElementById('timeText');
-            const now = new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute:'2-digit'});
+            const now = new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+
             if (msg === "on") {
                 circle.className = "status-circle busy";
                 circle.innerHTML = "✋";
@@ -69,13 +73,15 @@
                 text.innerText = "空闲";
                 text.style.color = "#34C759";
             } else {
-                circle.className = "status-circle";
-                circle.innerHTML = "?";
-                text.innerText = "无数据";
-                text.style.color = "#8e8e93";
+                // 暂时保持之前的状态，或者显示无数据
+                // circle.className = "status-circle";
+                // circle.innerHTML = "?";
+                // text.innerText = "无数据";
             }
             time.innerText = "更新于: " + now;
         }
+
+        // 每 3 秒刷新一次
         setInterval(refresh, 3000);
         refresh();
     </script>
