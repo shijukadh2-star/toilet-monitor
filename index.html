@@ -5,81 +5,65 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Amos 卫生间状态</title>
     <style>
-        body { margin: 0; padding: 0; font-family: sans-serif; background-color: #f2f2f7; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .card { background: white; width: 85%; max-width: 350px; padding: 40px 20px; border-radius: 25px; text-align: center; }
-        .status-circle { width: 140px; height: 140px; border-radius: 50%; margin: 0 auto 30px; display: flex; align-items: center; justify-content: center; font-size: 60px; background-color: #ddd; }
-        .free { background-color: #34C759; color: white; }
-        .busy { background-color: #FF3B30; color: white; }
-        /* 错误信息样式 */
-        #debug-console { color: red; font-size: 12px; margin-top: 20px; white-space: pre-wrap; word-break: break-all; background: #eee; padding: 10px; border-radius: 5px; display: none;}
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f2f2f7; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .card { background: white; width: 85%; max-width: 350px; padding: 40px 20px; border-radius: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); text-align: center; }
+        .status-circle { width: 140px; height: 140px; border-radius: 50%; margin: 0 auto 30px; display: flex; align-items: center; justify-content: center; font-size: 60px; transition: all 0.3s; background-color: #ddd; }
+        .free { background-color: #34C759; box-shadow: 0 10px 20px rgba(52, 199, 89, 0.3); color: white; }
+        .busy { background-color: #FF3B30; box-shadow: 0 10px 20px rgba(255, 59, 48, 0.3); color: white; }
+        h1 { margin: 0; font-size: 28px; color: #1c1c1e; font-weight: 700; }
+        p { margin-top: 10px; color: #8e8e93; font-size: 14px; }
+        .brand { position: absolute; bottom: 30px; color: #c7c7cc; font-size: 12px; font-weight: 500; letter-spacing: 1px; }
     </style>
 </head>
 <body>
 
     <div class="card">
         <div id="circle" class="status-circle">?</div>
-        <h1 id="statusText">正在连接...</h1>
-        <p id="timeText">初始化中</p>
-        
-        <div id="debug-console"></div>
+        <h1 id="statusText">正在同步...</h1>
+        <p id="timeText">Amos Internal System</p>
     </div>
 
+    <div class="brand">AMOS SWEETS</div>
+
     <script>
-        // ==========================================
-        // 🔴🔴🔴 请在这里填入你的 UID 🔴🔴🔴
+        // 🔴🔴🔴 请填入你的 UID 🔴🔴🔴
         const uid = "21f86b4c0b9947c99462f1c86809f86f";  
         const topic = "toilet001";
-        // ==========================================
+        // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
 
         async function refresh() {
-            const debug = document.getElementById('debug-console');
-            
-            // 检查用户是不是忘了填 UID
-            if (uid.includes("你的私钥") || uid.length < 10) {
-                showError("配置错误：\n你忘记在代码里填入 UID 了！\n请去 GitHub 编辑 index.html 文件。");
-                return;
-            }
-
             try {
-                // 注意：必须使用 https，否则 GitHub Pages 会拦截
-                const url = `https://api.bemfa.com/api/device/v1/data/1/uid/${uid}/topic/${topic}/num/1`;
+                // 原始 HTTP 链接
+                const targetUrl = `http://api.bemfa.com/api/device/v1/data/1/uid/${uid}/topic/${topic}/num/1`;
                 
-                let res = await fetch(url);
-                
-                if (!res.ok) {
-                    throw new Error(`网络请求失败: ${res.status}`);
-                }
+                // 🔥 核心修改：使用 'allorigins' 魔法中转 🔥
+                // 这将绕过 HTTPS 限制和跨域问题
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
 
-                let json = await res.json();
+                const res = await fetch(proxyUrl);
+                const jsonWrapper = await res.json();
                 
-                if (json.data && json.data.length > 0) {
-                    let msg = json.data[0].msg.trim();
+                // allorigins 会把真实数据放在 contents 里
+                const realData = JSON.parse(jsonWrapper.contents);
+
+                if (realData.data && realData.data.length > 0) {
+                    let msg = realData.data[0].msg.trim();
                     updateUI(msg);
-                    debug.style.display = 'none'; // 成功则隐藏报错
                 } else {
-                    // 虽然连上了，但没有数据
-                    updateUI("nodata");
+                     updateUI("nodata");
                 }
-
             } catch (e) {
                 console.error(e);
-                showError("同步失败：\n" + e.message + "\n\n(请检查 UID 是否正确，或尝试刷新)");
+                // 如果连魔法中转都失败了，说明彻底没网
+                document.getElementById('statusText').innerText = "网络受限";
             }
-        }
-
-        function showError(msg) {
-            const debug = document.getElementById('debug-console');
-            const text = document.getElementById('statusText');
-            debug.innerText = msg;
-            debug.style.display = 'block';
-            text.innerText = "连接出错";
         }
 
         function updateUI(msg) {
             const circle = document.getElementById('circle');
             const text = document.getElementById('statusText');
             const time = document.getElementById('timeText');
-            const now = new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+            const now = new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute:'2-digit'});
 
             if (msg === "on") {
                 circle.className = "status-circle busy";
@@ -91,8 +75,6 @@
                 circle.innerHTML = "✅"; 
                 text.innerText = "空闲";
                 text.style.color = "#34C759";
-            } else {
-                 text.innerText = "暂无数据";
             }
             time.innerText = "更新于: " + now;
         }
